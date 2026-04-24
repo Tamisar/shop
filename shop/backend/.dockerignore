@@ -1,0 +1,8 @@
+.env
+.git
+*.md
+vendor/
+.idea/
+.vscode/
+tests/
+*.log
