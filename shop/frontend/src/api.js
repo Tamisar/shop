@@ -1,3 +1,5 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
+
 export const api = fetch => (url, options = {}) => {
   const token = localStorage.getItem('token');
   const headers = {
@@ -5,5 +7,5 @@ export const api = fetch => (url, options = {}) => {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers
   };
-  return fetch(`http://localhost:8080${url}`, { ...options, headers });
+  return fetch(`${API_BASE_URL}${url}`, { ...options, headers });
 };

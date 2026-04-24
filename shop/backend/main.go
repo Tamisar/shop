@@ -63,7 +63,11 @@ type AuthInput struct {
 }
 
 func hashPassword(password string) (string, error) {
-	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+  hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+  if err != nil {
+    return "", err
+  }
+  return string(hash), nil
 }
 
 func checkPassword(password, hash string) error {
@@ -104,6 +108,32 @@ func initDB(cfg *Config) (*pgxpool.Pool, error) {
 	return pgxpool.New(context.Background(), connStr)
 }
 
+func connectDBWithRetry(cfg *Config) (*pgxpool.Pool, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= 20; attempt++ {
+		pool, err := initDB(cfg)
+		if err == nil {
+			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			pingErr := pool.Ping(pingCtx)
+			cancel()
+			if pingErr == nil {
+				return pool, nil
+			}
+
+			lastErr = pingErr
+			pool.Close()
+		} else {
+			lastErr = err
+		}
+
+		log.Printf("database is not ready yet (attempt %d/20): %v", attempt, lastErr)
+		time.Sleep(2 * time.Second)
+	}
+
+	return nil, fmt.Errorf("database connection failed after retries: %w", lastErr)
+}
+
 func seedProducts(db *pgxpool.Pool) error {
 	ctx := context.Background()
 	products := []Product{
@@ -126,7 +156,7 @@ func seedProducts(db *pgxpool.Pool) error {
 func main() {
 	cfg := loadConfig()
 	
-	pool, err := initDB(cfg)
+	pool, err := connectDBWithRetry(cfg)
 	if err != nil {
 		log.Fatalf("Не удалось подключиться к БД: %v", err)
 	}
@@ -137,6 +167,10 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	r.GET("/api/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 
 	r.POST("/api/auth/register", func(c *gin.Context) {
 		var input AuthInput

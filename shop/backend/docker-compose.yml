@@ -9,15 +9,15 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./backend/schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
       - pg_data:/var/lib/postgresql/data
 
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "5003:8080"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
